@@ -1,9 +1,9 @@
 from time import sleep
 from unittest.case import TestCase
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_greater, assert_in
 
-from wasted_time import combine_summaries, get_active_window_name
+from wasted_time import combine_summaries, get_active_window_data
 
 
 class WastedTimeTest(TestCase):
@@ -85,10 +85,15 @@ class WastedTimeTest(TestCase):
             }
         )
 
+    def test_get_active_window_data(self):
+        data = get_active_window_data()
+        assert_greater(data['pid'], 0)
+        assert_in('terminal', data['app_name'].lower())
+        assert_in('wasted', data['title'].lower())
 
-class WastedTimeTest(TestCase):
-    def test_get_active_window_name(self):
-        while True:
-            print(get_active_window_name())
-            sleep(5)
-            # assert_equal(get_active_window_name(), 'sdf')
+    def test_get_active_window_data(self):
+        for _ in range(5):
+            data = get_active_window_data()
+            print(data)
+            sleep(1)
+        assert False

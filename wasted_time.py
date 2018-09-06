@@ -8,7 +8,6 @@ import traceback
 from copy import deepcopy
 from datetime import datetime
 from pprint import pprint
-from AppKit import NSWorkspace
 
 PERIOD = 1.0  # second
 TOTAL_TIME_PREFIX = 'total time'
@@ -151,36 +150,41 @@ def get_active_window_data():
     frame_pid = -1
     frame_name = 'Unknown'
 
-    if os.sys.platform == "darwin":
-        from AppKit import NSWorkspace
-        from Quartz import (
-            CGWindowListCopyWindowInfo,
-            kCGWindowListOptionOnScreenOnly,
-            kCGNullWindowID
-        )
-
     if os.sys.platform == 'linux':
-        frame_pid = get_cmd_output(['xdotool', 'getactivewindow', 'getwindowpid'])
-        frame_name = get_cmd_output(['xdotool', 'getwindowfocus', 'getwindowname'])
-        if frame_pid:
-            app_name = get_cmd_output(['ps', '-p', frame_pid, '-o', 'comm='])
-        else:
-            app_name = 'Unknown'
+        raise NotImplementedError
+        import gi
+        import gtk
+        gi.require_version('Wnck', '3.0')
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk, Wnck
+        Gtk.init([])
+        screen = Wnck.Screen.get_default()
+        screen.force_update()
+        while gtk.events_pending():
+            gtk.main_iteration()
+        screen.get_windows()
+        window = screen.get_active_window()
+        app_name = window.get_application().get_name()
+        frame_pid = window.get_pid()
+        frame_name = window.get_name()
     elif os.sys.platform == "darwin":
+        from AppKit import NSWorkspace
+        from Quartz import CGWindowListCopyWindowInfo, \
+                           kCGWindowListOptionOnScreenOnly, \
+                           kCGNullWindowID
+
         application = NSWorkspace.sharedWorkspace().activeApplication()
         frame_pid = application['NSApplicationProcessIdentifier']
         app_name = application['NSApplicationName']
-        for window in CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly,
-                                                 kCGNullWindowID):
+        for window in CGWindowListCopyWindowInfo(
+            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+        ):
             pid = window['kCGWindowOwnerPID']
             window_title = window.get('kCGWindowName', u'Unknown')
             if frame_pid == pid:
                 frame_name = window_title
                 break
-
     elif os.sys.platform == "win32":
-        pass
-        # (active_app_name, window_title) = _getActiveInfo_Win32()
         raise NotImplementedError
 
     return {
@@ -203,5 +207,6 @@ def combine_time():
 
 
 if __name__ == '__main__':
+    # TODO: add arguments - run or combine
     show_wasted_time()
     # combine_time()
