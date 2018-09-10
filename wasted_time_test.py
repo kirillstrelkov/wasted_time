@@ -92,8 +92,9 @@ class WastedTimeTest(TestCase):
         assert_in('wasted', data['title'].lower())
 
     def test_get_active_window_data(self):
-        for _ in range(5):
+        for _ in range(3):
             data = get_active_window_data()
-            print(data)
-            sleep(1)
-        assert False
+            assert_in('wastedtime', data['title'])
+            assert_in(data['app_name'], ['java', 'gnome-terminal-'])
+            assert_greater(int(data['pid']), 0)
+            sleep(0.5)

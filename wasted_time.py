@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-import codecs
+import argparse
 import csv
 import subprocess
 import time
-import os
 import traceback
-from copy import deepcopy
 from datetime import datetime
-from pprint import pprint
+from tempfile import gettempdir
+
+import codecs
+import os
+from copy import deepcopy
 
 PERIOD = 1.0  # second
 TOTAL_TIME_PREFIX = 'total time'
@@ -71,7 +73,6 @@ def get_cmd_output(command):
     try:
         output = subprocess.check_output(command).decode('utf-8').strip()
     except subprocess.CalledProcessError as e:
-        print(e)
         traceback.print_exc()
     finally:
         return output
@@ -81,7 +82,7 @@ def time_format(s):
     # convert time format from seconds to h:m:s
     m, s = divmod(s, 60)
     h, m = divmod(m, 60)
-    return '%d:%02d:%02d' % (h, m, s)
+    return '{:02d}:{:02d}:{:02d}'.format(h, m, s)
 
 
 def save_summary(summary, log_file):
@@ -92,37 +93,38 @@ def save_summary(summary, log_file):
         for app_name, data in summary.items():
             total_time = sum(data.values())
             for title, elapsed_time in data.items():
-                # writer.writerow([app, title, time_format(elapsed_time)])
                 writer.writerow([app_name, title, elapsed_time])
 
-            if ' '.join([app_name,TOTAL_TIME_PREFIX]) not in data:
-                writer.writerow([app_name, ' '.join([app_name,TOTAL_TIME_PREFIX]), total_time])
+            if ' '.join([app_name, TOTAL_TIME_PREFIX]) not in data:
+                writer.writerow([app_name, ' '.join([app_name, TOTAL_TIME_PREFIX]), total_time])
 
 
-def show_wasted_time():
+def __get_log_file():
+    timetuple = datetime.now().timetuple()
+    return os.path.join(
+        SAVING_LOCATION,
+        'wasted_time_{:02d}{:02d}{:d}.csv'.format(
+            timetuple.tm_mday, timetuple.tm_mon, timetuple.tm_year
+        )
+    )
+
+
+def record_wasted_time():
     summary = {}
 
     if not os.path.exists(SAVING_LOCATION):
         os.makedirs(SAVING_LOCATION)
 
-    timetuple = datetime.now().timetuple()
-    log_file = os.path.join(
-        SAVING_LOCATION,
-        'wasted_time_%s%s%s.csv' % (timetuple.tm_mday, timetuple.tm_mon, timetuple.tm_year)
-    )
+    log_file = __get_log_file()
     if os.path.exists(log_file):
-        print('Reading summary from file: %s' % log_file)
+        print('Reading summary from file: {}'.format(log_file))
         summary = get_summary_from(log_file)
 
     while True:
-        timetuple = datetime.now().timetuple()
-        log_file = os.path.join(
-            SAVING_LOCATION,
-            'wasted_time_%s%s%s.csv' % (timetuple.tm_mday, timetuple.tm_mon, timetuple.tm_year)
-        )
+        log_file = __get_log_file()
         is_a_new_day = not os.path.exists(log_file)
         if is_a_new_day:
-            print('Start logging to file: %s' % log_file)
+            print('Start logging to file: {}'.format(log_file))
             summary = {}
 
         data = get_active_window_data()
@@ -140,7 +142,6 @@ def show_wasted_time():
             else:
                 application[frame_name] += PERIOD
 
-            # print(summary)
             save_summary(summary, log_file)
             time.sleep(PERIOD)
 
@@ -151,33 +152,23 @@ def get_active_window_data():
     frame_name = 'Unknown'
 
     if os.sys.platform == 'linux':
-        raise NotImplementedError
-        import gi
-        import gtk
-        gi.require_version('Wnck', '3.0')
-        gi.require_version('Gtk', '3.0')
-        from gi.repository import Gtk, Wnck
-        Gtk.init([])
-        screen = Wnck.Screen.get_default()
-        screen.force_update()
-        while gtk.events_pending():
-            gtk.main_iteration()
-        screen.get_windows()
-        window = screen.get_active_window()
-        app_name = window.get_application().get_name()
-        frame_pid = window.get_pid()
-        frame_name = window.get_name()
+        frame_pid = get_cmd_output(['xdotool', 'getactivewindow', 'getwindowpid'])
+        frame_name = get_cmd_output(['xdotool', 'getwindowfocus', 'getwindowname'])
+        if frame_pid:
+            app_name = get_cmd_output(['ps', '-p', frame_pid, '-o', 'comm='])
+        else:
+            app_name = 'Unknown'
     elif os.sys.platform == "darwin":
         from AppKit import NSWorkspace
         from Quartz import CGWindowListCopyWindowInfo, \
-                           kCGWindowListOptionOnScreenOnly, \
-                           kCGNullWindowID
+            kCGWindowListOptionOnScreenOnly, \
+            kCGNullWindowID
 
         application = NSWorkspace.sharedWorkspace().activeApplication()
         frame_pid = application['NSApplicationProcessIdentifier']
         app_name = application['NSApplicationName']
         for window in CGWindowListCopyWindowInfo(
-            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
         ):
             pid = window['kCGWindowOwnerPID']
             window_title = window.get('kCGWindowName', u'Unknown')
@@ -194,19 +185,37 @@ def get_active_window_data():
     }
 
 
-def combine_time():
-    folder = os.path.join(SAVING_LOCATION, 'week51')
+def merge_time(folder):
+    folder = os.path.abspath(folder)
+    if not os.path.exists(folder):
+        raise FileNotFoundError("Folder not found '{}'".format(folder))
+
     files = [os.path.join(folder, f) for f in os.listdir(folder)]
     total_summary = {}
     for path in files:
         summary = get_summary_from(path)
         total_summary = combine_summaries(total_summary, summary)
 
-    pprint(total_summary)
-    save_summary(total_summary, '/tmp/out')
+    log_file = os.path.join(gettempdir(), 'wasted_time_merged.csv')
+    print("Saving merged results to '{}'".format(log_file))
+    save_summary(total_summary, log_file)
+
+
+def __main():
+    parser = argparse.ArgumentParser(
+        description='Records all time which was spent on different windows/apps with titles'
+    )
+    parser.add_argument('-m', '--merge', action='store_true', help='merge all files into one')
+    parser.add_argument('-i', '--input', help='input directory where to take files for merging')
+
+    args = parser.parse_args()
+    if args.merge and args.input and os.path.isdir(args.input):
+        merge_time(args.input)
+    elif not args.merge and not args.input:
+        record_wasted_time()
+    else:
+        raise ValueError('Please specify both -m and -i or nothing')
 
 
 if __name__ == '__main__':
-    # TODO: add arguments - run or combine
-    show_wasted_time()
-    # combine_time()
+    __main()
