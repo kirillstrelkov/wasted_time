@@ -1,6 +1,6 @@
 # wasted_time
 ## About
-Application records time which was spent on each window.
+Application records/tracks time which was spent on each window.
 
 ## Example
 ![CSV file screenshot](res/csv_example.png)
