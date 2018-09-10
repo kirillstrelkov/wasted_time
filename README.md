@@ -8,13 +8,17 @@ Application records time which was spent on each window.
 ### 1. Install requirements
 #### Mac
 ```bash
-pip install -r requirements/mac.txt
+python -m pip install -r requirements/mac.txt
 ```
 
 #### Linux
 ```bash
-pip install -r requirements/linux.txt
+python -m pip install -r requirements/linux.txt
 sudo apt install -y xdotool
+```
+#### Windows
+```bash
+python -m pip install -r requirements/win.txt
 ```
 
 ### 2. Run wasted_time
