@@ -6,6 +6,7 @@ Application records time which was spent on each window.
 ![CSV file screenshot](res/csv_example.png)
 
 ### 1. Install requirements
+**Note:** tested with Python 3+
 #### Mac
 ```bash
 python -m pip install -r requirements/mac.txt
