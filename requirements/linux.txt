@@ -1,1 +1,4 @@
 nose
+win32gui
+pypiwin32
+psutil
