@@ -132,7 +132,7 @@ def record_wasted_time():
         app_name = data['app_name']
         frame_name = data['title']
 
-        if frame_pid is not None and frame_name and app_name:
+        if frame_pid > 0 and frame_name != 'Unknown' and app_name != 'Unknown':
             if app_name not in summary:
                 summary[app_name] = {}
 
@@ -150,33 +150,39 @@ def get_active_window_data():
     app_name = 'Unknown'
     frame_pid = -1
     frame_name = 'Unknown'
+    try:
+        if os.sys.platform == 'linux':
+            frame_pid = get_cmd_output(['xdotool', 'getactivewindow', 'getwindowpid'])
+            frame_name = get_cmd_output(['xdotool', 'getwindowfocus', 'getwindowname'])
+            if frame_pid:
+                app_name = get_cmd_output(['ps', '-p', frame_pid, '-o', 'comm='])
+            else:
+                app_name = 'Unknown'
+        elif os.sys.platform == "darwin":
+            from AppKit import NSWorkspace
+            from Quartz import CGWindowListCopyWindowInfo, \
+                kCGWindowListOptionOnScreenOnly, \
+                kCGNullWindowID
 
-    if os.sys.platform == 'linux':
-        frame_pid = get_cmd_output(['xdotool', 'getactivewindow', 'getwindowpid'])
-        frame_name = get_cmd_output(['xdotool', 'getwindowfocus', 'getwindowname'])
-        if frame_pid:
-            app_name = get_cmd_output(['ps', '-p', frame_pid, '-o', 'comm='])
-        else:
-            app_name = 'Unknown'
-    elif os.sys.platform == "darwin":
-        from AppKit import NSWorkspace
-        from Quartz import CGWindowListCopyWindowInfo, \
-            kCGWindowListOptionOnScreenOnly, \
-            kCGNullWindowID
-
-        application = NSWorkspace.sharedWorkspace().activeApplication()
-        frame_pid = application['NSApplicationProcessIdentifier']
-        app_name = application['NSApplicationName']
-        for window in CGWindowListCopyWindowInfo(
-                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-        ):
-            pid = window['kCGWindowOwnerPID']
-            window_title = window.get('kCGWindowName', u'Unknown')
-            if frame_pid == pid:
-                frame_name = window_title
-                break
-    elif os.sys.platform == "win32":
-        raise NotImplementedError
+            application = NSWorkspace.sharedWorkspace().activeApplication()
+            frame_pid = application['NSApplicationProcessIdentifier']
+            app_name = application['NSApplicationName']
+            for window in CGWindowListCopyWindowInfo(
+                    kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+            ):
+                pid = window['kCGWindowOwnerPID']
+                window_title = window.get('kCGWindowName', u'Unknown')
+                if frame_pid == pid:
+                    frame_name = window_title
+                    break
+        elif os.sys.platform == "win32":
+            import win32gui, win32process, psutil
+            window = win32gui.GetForegroundWindow()
+            frame_pid =  win32process.GetWindowThreadProcessId(window)[-1]
+            frame_name = win32gui.GetWindowText(window)
+            app_name = psutil.Process(frame_pid).name()
+    except:
+        traceback.print_exc()
 
     return {
         'app_name': app_name,
