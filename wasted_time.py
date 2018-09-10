@@ -5,12 +5,13 @@ import subprocess
 import time
 import traceback
 from datetime import datetime
-from tempfile import gettempdir
 
 import codecs
 import os
 from copy import deepcopy
+from tempfile import gettempdir
 
+UNKNOWN = 'Unknown'
 PERIOD = 1.0  # second
 TOTAL_TIME_PREFIX = 'total time'
 SAVING_LOCATION = os.path.join(os.path.expanduser('~'), 'wasted_time')
@@ -132,7 +133,7 @@ def record_wasted_time():
         app_name = data['app_name']
         frame_name = data['title']
 
-        if frame_pid > 0 and frame_name != 'Unknown' and app_name != 'Unknown':
+        if frame_pid > 0 and frame_name != UNKNOWN and app_name != UNKNOWN:
             if app_name not in summary:
                 summary[app_name] = {}
 
@@ -147,9 +148,9 @@ def record_wasted_time():
 
 
 def get_active_window_data():
-    app_name = 'Unknown'
+    app_name = UNKNOWN
     frame_pid = -1
-    frame_name = 'Unknown'
+    frame_name = UNKNOWN
     try:
         if os.sys.platform == 'linux':
             frame_pid = get_cmd_output(['xdotool', 'getactivewindow', 'getwindowpid'])
@@ -157,7 +158,7 @@ def get_active_window_data():
             if frame_pid:
                 app_name = get_cmd_output(['ps', '-p', frame_pid, '-o', 'comm='])
             else:
-                app_name = 'Unknown'
+                app_name = UNKNOWN
         elif os.sys.platform == "darwin":
             from AppKit import NSWorkspace
             from Quartz import CGWindowListCopyWindowInfo, \
@@ -171,14 +172,14 @@ def get_active_window_data():
                     kCGWindowListOptionOnScreenOnly, kCGNullWindowID
             ):
                 pid = window['kCGWindowOwnerPID']
-                window_title = window.get('kCGWindowName', u'Unknown')
+                window_title = window.get('kCGWindowName', UNKNOWN)
                 if frame_pid == pid:
                     frame_name = window_title
                     break
         elif os.sys.platform == "win32":
             import win32gui, win32process, psutil
             window = win32gui.GetForegroundWindow()
-            frame_pid =  win32process.GetWindowThreadProcessId(window)[-1]
+            frame_pid = win32process.GetWindowThreadProcessId(window)[-1]
             frame_name = win32gui.GetWindowText(window)
             app_name = psutil.Process(frame_pid).name()
     except:
