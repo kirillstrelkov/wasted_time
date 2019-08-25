@@ -1,2 +1,4 @@
-nose
+pytest
 win32gui
+pypiwin32
+psutil

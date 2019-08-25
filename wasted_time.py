@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import codecs
 import csv
+import os
 import subprocess
 import time
 import traceback
-from datetime import datetime
-
-import codecs
-import os
 from copy import deepcopy
+from datetime import datetime
 from tempfile import gettempdir
 
 UNKNOWN = 'Unknown'
@@ -187,7 +186,7 @@ def get_active_window_data():
 
     return {
         'app_name': app_name,
-        'pid': frame_pid,
+        'pid': int(frame_pid),
         'title': frame_name
     }
 
